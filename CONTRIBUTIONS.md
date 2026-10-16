@@ -11,14 +11,14 @@ This index employs:
 - Behavioral Metrics: Measuring observable citizen-state interactions
 - Outcome-Based Assessment: Evaluating system performance through measurable outputs
 
-The framework quantifies institutional responsiveness capacity through 20 empirically measurable variables across five analytical dimensions.
+The framework quantifies institutional responsiveness capacity through 19 empirically measurable variables across five analytical dimensions.
 
 ---
 
 ## Data Collection Structure
 
 Each country receives quantitative assessment across:
-- 20 measured variables
+- 19 measured variables
 - 5 analytical dimensions
 - 0–10 numerical scale
 
@@ -108,7 +108,7 @@ Use standardized 0–10 scale based on measurable performance:
 
 ### CSV Structure
 ```
-Country,Leadership_Turnover_Rate,Sub_national_Autonomy,Policy_Adaptation_Rate,[...all 20 variables],Classification
+Country,Leadership_Turnover_Rate,Sub_national_Autonomy,Policy_Adaptation_Rate,[...all 19 variables],Classification
 ```
 
 ### Sample Data Entry
@@ -140,7 +140,6 @@ Country_X,7.2,5.8,4.1,[...],Measured
    - Note any methodological limitations
 4. Submission
    - Submit via Pull Request with complete documentation
-   - Alternative: Submit via Data Collection Form
 
 ### Quality Control Process
 Submissions undergo systematic review for:
@@ -173,9 +172,9 @@ Submissions undergo systematic review for:
 ## Research Collaboration
 
 ### Technical Support
-- Methodology Questions: GitHub Issues
-- Data Collection Support: research@civichorizon.org
-- Technical Documentation: Research Wiki
+- Methodology and data collection questions: GitHub Issues
+- Data submissions and corrections: GitHub Pull Requests
+- Technical documentation: [README.md](README.md)
 
 ### Academic Standards
 This dataset maintains rigorous standards for:

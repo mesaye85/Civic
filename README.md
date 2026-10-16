@@ -1,148 +1,119 @@
-# CivicHorizon: Structural Input Normalization for Political System Assessment
+# CivicHorizon
 
-## Overview
+CivicHorizon is a small Python tool that scores countries on 19 structural governance indicators with explicit, documented rules. Each indicator is a 0–10 value supplied in the input. The tool validates each record against a JSON Schema, takes a weighted mean, and labels the result against a fixed threshold. It also reports how much each indicator contributed. There is no trained model or imputation, so every score can be traced to the input values, the weights and the rules.
 
-**CivicHorizon** is a lightweight, schema-driven tool for evaluating the internal structure and functionality of political systems using a defined set of normalized, manually-verifiable inputs.
+## The rules
 
-The project is designed as an **open framework** to:
-- Test assumptions about governance structures
-- Normalize qualitative or semi-structured data into comparable values
-- Explore how structural features affect internal system resilience, adaptability, and coherence
+Three files define how a score is computed.
 
-This tool is intended primarily for:
-- Systems designers and political engineers
-- Analysts modeling sociopolitical stability
-- Developers experimenting with logic-based civic diagnostics
-- Educators teaching complex system abstraction
+- **[`schema/schema.json`](schema/schema.json)** defines the fields. The indicators are the 19 numeric `*_Score` fields. Each one may carry a `*_definition` and a `*_source` string. Those strings are copied to the output but are never scored. `Democracy_Status` is the computed score and is not an input.
+- **`weights.json`** is optional. It maps indicator names to non-negative numbers. Indicators you don't list default to `1.0`, so without the file every indicator has equal weight. Weights are normalized to sum to 1. An unknown key (including a metadata field or `Democracy_Status`), a negative weight, or all-zero weights stops the run with an error.
+- **[`rules.json`](rules.json)** sets the classification rules:
 
-It does **not** use opaque ML models or externally imposed scores. All output is traceable to input.
+| Key | Default | Meaning |
+|---|---|---|
+| `classification_threshold` | `5.0` | The score that separates the two labels below. |
+| `label_at_or_above_threshold` | `"Democratic"` | The label for a score at or above the threshold. |
+| `label_below_threshold` | `"Non-Democratic"` | The label for a score below the threshold. |
+| `min_weight_coverage` | `1.0` | The share of total weight that must be present. `1.0` means every indicator is required. |
+| `insufficient_data_label` | `"Insufficient data"` | The label given when coverage falls below the minimum. |
 
----
+For each country, *P* is the set of indicators that have a value and *w* is the normalized weight:
 
-## Recent Technical Improvements
+```
+score    = Σ(w_i · x_i for i in P) / Σ(w_i for i in P)
+coverage = Σ(w_i for i in P) / Σ(w_i for all indicators)
 
-- **Modular Input Pipeline:**
-  - Supports both CSV and JSON input formats out of the box.
-  - Easily extensible to new formats (e.g., API, NLP, database) via a simple registration decorator.
+if coverage < min_weight_coverage:   status = insufficient_data_label
+elif score >= classification_threshold: status = label_at_or_above_threshold
+else:                                status = label_below_threshold
+```
 
-- **Weighted and User-Configurable Aggregation:**
-  - Aggregates indicator fields into the final `Democracy_Status` using user-specified weights (via `weights.json`) or defaults to equal weighting.
-  - Weights are normalized and can be changed without code modification.
+A missing value is treated as missing, never as zero. The partial score and the coverage are still reported for a country labeled insufficient. A perfect 10 on every indicator scores exactly 10.0.
 
-- **Schema-Driven Validation:**
-  - All data is validated against `schema/schema.json`.
-  - The loader warns about missing or extra fields, ensuring data quality and schema consistency.
+A record is rejected and listed in the report, rather than scored, when it fails the schema. That covers a missing `Country`, a non-numeric value, a value outside 0–10, or a column that isn't in the schema. A country name that appears more than once is also rejected. Only countries in the input are assessed.
 
-- **Metadata and Auditability:**
-  - Each indicator can include `*_definition` and `*_source` fields for operational definitions and data sources.
-  - These metadata fields are preserved in all outputs (CSV/JSON) and are not used in scoring.
-
-- **Diagnostic and Field Impact Reporting:**
-  - CLI and JSON outputs include a breakdown of each field's contribution to the final score.
-  - Reports highlight the highest/lowest impact fields, missing/default values, and provide transparent diagnostics for each country.
-
-- **Experimental Inference Model (Imputation):**
-  - Enable with `CIVIC_IMPUTE=1` (environment variable).
-  - Trains a lightweight, traceable linear model to fill missing indicator values using available data.
-  - Imputed values are clearly marked in the output for auditability.
-  - Skips imputation for fields with no data and never fails on incomplete input.
-
-- **Robust Error Handling:**
-  - Handles `None`/missing values gracefully in all calculations.
-  - Skips model training for fields with all values missing.
-  - Aggregation logic never fails due to incomplete or partial data.
-
-- **Improved Test Coverage:**
-  - (Described for maintainers) Tests cover schema compliance, aggregation logic, input/output handling, and edge cases (missing fields, empty input, etc.).
-
----
-
-## Project Objectives
-
-- Define a flexible, low-footprint schema for collecting civic structure indicators
-- Enable scoring of countries based on real-world events and system signals, not political alignment
-- Support modular input pipelines (manual, scripted, or future NLP/ML)
-- Provide auditability of all computed values
-- Allow end-users to modify weights, rules, or schema for alternative simulations
-
----
-
-## How It Works
-
-1. **Input Normalization**  
-   Users enter structured data in JSON or CSV format, corresponding to observable civic indicators.
-
-2. **Scoring Engine**  
-   Inputs are mapped to a 0–10 scale based on defined logic. Each field corresponds to a structural attribute.
-
-3. **Aggregation**  
-   Weighted or equal-weighted aggregation is performed. Final outputs are available in CLI or structured JSON form.
-
-4. **Optionally**  
-   A lightweight inference model can be trained to project missing values from partial data. This is experimental and traceable.
-
----
-
-## Input Schema (Overview)
-
-Each country's evaluation is based on explicitly scored indicators across multiple domains.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `Country` | `str` | Country name |
-| `Leadership_Turnover_Score` | `number` (0–10) | Score measuring leadership turnover and transition |
-| `Local_Governance_Score` | `number` (0–10) | Score measuring effectiveness of local governance |
-| `Policy_Responsiveness_Score` | `number` (0–10) | Score measuring how responsive policies are to public needs |
-| `Language_Alignment_Score` | `number` (0–10) | Score measuring alignment between official and public language |
-| `Participation_Accessibility_Score` | `number` (0–10) | Score measuring accessibility of civic participation |
-| `Civilian_Control_Score` | `number` (0–10) | Score measuring civilian control over military and security forces |
-| `Structural_Advocacy_and_Prosperity_Score` | `number` (0–10) | Score measuring structural support for advocacy and prosperity |
-| `Healthcare_Access_Score` | `number` (0–10) | Score measuring access to healthcare |
-| `Education_Completion_Score` | `number` (0–10) | Score measuring education completion rates |
-| `Food_Sovereignty_Score` | `number` (0–10) | Score measuring food sovereignty and security |
-| `Migration_Freedom_Score` | `number` (0–10) | Score measuring freedom of migration |
-| `Agency_Projection_Score` | `number` (0–10) | Score measuring individual agency projection |
-| `Pathway_to_Influence_Score` | `number` (0–10) | Score measuring pathways to influence in society |
-| `Collective_Future_Confidence_Score` | `number` (0–10) | Score measuring collective confidence in the future |
-| `System_Adaptability_Score` | `number` (0–10) | Score measuring adaptability of political and social systems |
-| `Collective_Momentum_Score` | `number` (0–10) | Score measuring collective momentum for change |
-| `Life_Investment_Score` | `number` (0–10) | Score measuring investment in life and future |
-| `Exit_vs_Voice_Behavior_Score` | `number` (0–10) | Score measuring tendency to voice concerns vs exit the system |
-| `Narrative_Action_Alignment_Score` | `number` (0–10) | Score measuring alignment between narrative and action |
-| `Democracy_Status` | `number` (0–10) | Overall democracy status score |
-
-> Full schema, including metadata fields, can be found in `schema/schema.json`.
-
----
-
-## Output
-
-The program outputs:
-- Raw normalized field values
-- Weighted total score (if enabled)
-- Breakdown of field impact (per-field contributions, top/bottom impact, missing/default warnings)
-- Structured report (`JSON`, optionally `CSV`)
-- CLI printout with diagnostic interpretation
-- (If enabled) Imputed values are flagged in the output
-
----
-
-## Technical Stack
-
-- Python 3.11+
-- Required dependencies: `pandas`, `numpy`, `scikit-learn`, `pycountry`
-- Fully compatible with headless environments or lightweight deployment
-
----
-
-## Sample Workflow
+## Running it
 
 ```bash
-# Run the main program to process data and generate complete dataset
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
 python main.py
+```
 
-# Enable experimental inference model for missing value imputation
-CIVIC_IMPUTE=1 python main.py
+```
+python main.py [--input PATH] [--weights PATH] [--rules PATH] [--output DIR]
+```
 
-# Train a simple model (experimental feature, standalone)
-python model.py --train data/ --fields Agency_Projection_Score Collective_Future_Confidence_Score
+- `--input` takes a CSV or JSON file. It defaults to `$CIVIC_INPUT` if that is set, and otherwise to `data/seed_structural_democracy_data.csv`.
+- `--weights` defaults to `weights.json` if that file exists, and otherwise to equal weights.
+- `--rules` defaults to `rules.json`.
+- `--output` defaults to `output/`.
+
+The run prints a table of country, score, coverage and status. Below it, each country gets its three highest and three lowest contributors and its missing indicators, followed by any rejected records with the reasons.
+
+On the bundled seed data, every Democratic score falls between 8.61 and 8.93 and every Non-Democratic score between 1.36 and 2.56:
+
+```
+Country       Score  Coverage  Status
+-------------------------------------------------
+Norway         8.90      100%  Democratic
+North Korea    1.36      100%  Non-Democratic
+...
+```
+
+## Input format
+
+- **CSV** has one row per country, and its columns are schema field names. An empty cell means the value is missing. [`data/governance_index_template.csv`](data/governance_index_template.csv) has every field in schema order.
+- **JSON** is either a list of records or an object whose values are records. A `null` or absent key means the value is missing.
+
+Both loaders produce the same records, and the tests check this. To add a format, write a function `(path, schema) -> list[dict]` and decorate it with `@register_loader(".ext")` in [`civic/loaders.py`](civic/loaders.py).
+
+If the input has a `Democracy_Status` value, the tool ignores it and computes the score itself.
+
+## Outputs
+
+The tool writes two files.
+
+- `output/scores.csv` has one row per scored country: `Country`, `Democracy_Status` (the score), `Classification`, `Weight_Coverage`, `Missing_Indicators`, every input field, and an `<indicator>_contribution` column for each indicator.
+- `output/scores.json` records the input path, the rules and normalized weights that were applied, and one entry per country. Each entry holds the score, classification, coverage, missing indicators, top and bottom contributors, a per-indicator block (`value`, `weight`, `effective_weight`, `contribution`) and metadata. The file ends with the list of rejected records and their errors.
+
+`weight` is the normalized weight across all 19 indicators. `effective_weight` is the weight renormalized over the indicators present. Each contribution equals `value × effective_weight`, and a country's contributions add up to its score.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+flake8 . --exclude venv,.venv --max-complexity=10 --max-line-length=127
+```
+
+The tests cover these cases:
+
+- Exact scoring at 10.0 and at the threshold, and that metadata carries no weight.
+- Weight normalization, custom weights, and rejection of unknown or negative weights.
+- Partial data, both with and without a lowered `min_weight_coverage`.
+- Rejection of out-of-range, non-numeric, NaN and duplicate records.
+- Matching results from the CSV and JSON loaders.
+- An end-to-end run on the seed data, the contents of the output files, and the CLI's error exits.
+
+CI runs flake8 and pytest on Python 3.11 ([`.github/workflows/python-app.yml`](.github/workflows/python-app.yml)).
+
+## Logical limitations
+
+- **The indicator values are hand-scored judgments.** [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) asks for verifiable, quantitative sources. The tool, however, receives numbers that a person has already scored, and it cannot check how they were produced. The rules make the aggregation reproducible, but they do nothing to make the inputs objective.
+- **Equal weights and the 5.0 threshold are choices, not findings.** Nothing in the data establishes that the indicators matter equally, or that 5.0 separates two kinds of political system. Changing either one can change labels.
+- **A binary label hides gradation.** A country at 5.0 and a country at 9.9 get the same label, while 4.9 and 5.0 get different ones. The score carries more information than the label does.
+- **The indicators likely overlap.** Several of them probably measure related things, such as Participation Accessibility, Pathway to Influence and Exit vs Voice Behavior. Under equal weights, a trait that several indicators share is counted more than once. I haven't tested for correlation.
+- **The seed data is illustrative and unsourced** (see [`data/README.md`](data/README.md)). The seed scores show that the pipeline runs. They are not assessments of those countries.
+- **The percentile quantification scale in CONTRIBUTIONS.md is not implemented.** The tool does not convert raw measurements to 0–10 percentiles, so it expects inputs that have already been scored.
+- **There is no time dimension.** Each record is one snapshot, with no year field and no way to track change.
+- **The variable names in CONTRIBUTIONS.md don't map 1:1 to the schema's field names yet.** For example, "Sub-national Autonomy" there appears, by its position, to correspond to `Local_Governance_Score` here, and the sample CSV header in that file uses names the schema doesn't have.
+
+## History
+
+Earlier versions trained a random-forest classifier on labels that were derived from the same features with the same 5.0 threshold, which made the reported accuracy circular. They also filled missing values with a linear regression and padded every country absent from the input with zeros. I removed all three so that every score traces to the explicit rules above.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
