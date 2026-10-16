@@ -187,13 +187,12 @@ This dataset maintains rigorous standards for:
 
 ## Data Use License
 
-Released under MIT License for academic and research use.
+Code and contributed data are released under the MIT License (see [LICENSE](LICENSE)), which permits any use, including commercial use, with attribution.
 
 ### Data Contribution Terms:
 - All sources must be publicly verifiable
 - Contributors receive attribution credit
-- Data available for non-commercial research applications
-- Commercial use requires separate licensing agreement
+- By submitting data, you agree to release it under the same MIT License
 
 ---
 
