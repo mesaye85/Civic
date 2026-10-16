@@ -106,3 +106,15 @@ poetry.lock
 *.tmp
 *.swp
 *.swo 
+# Virtual environments
+.venv/
+
+# Editor / local history
+.idea/
+.history/
+
+# Shell config backups
+.zshrc*
+
+# Generated scoring output
+output/
